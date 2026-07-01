@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
+from pathlib import Path
 
 import pygame
 
@@ -18,6 +19,7 @@ GRAVITY = 0.85
 JUMP_FORCE = -15.5
 SCROLL_SPEED = 5.8
 PLAYER_X = 170
+ASSET_DIR = Path(__file__).parent / "assets"
 
 SKY = (13, 18, 42)
 CYAN = (91, 221, 255)
@@ -29,15 +31,35 @@ PURPLE = (177, 93, 255)
 WHITE = (245, 247, 255)
 
 
+def load_image(name: str, size: tuple[int, int]) -> pygame.Surface | None:
+    """Load an optional PNG asset and scale it for the game.
+
+    If the image is missing or invalid, the game keeps running with the
+    procedural fallback drawings below.
+    """
+    path = ASSET_DIR / name
+    if not path.exists():
+        return None
+    try:
+        image = pygame.image.load(path).convert_alpha()
+    except pygame.error:
+        return None
+    return pygame.transform.smoothscale(image, size)
+
+
 @dataclass
 class Bullet:
     rect: pygame.Rect
+    image: pygame.Surface | None = None
     speed: float = 13.0
 
     def update(self) -> None:
         self.rect.x += int(self.speed)
 
     def draw(self, screen: pygame.Surface) -> None:
+        if self.image:
+            screen.blit(self.image, self.rect)
+            return
         pygame.draw.rect(screen, YELLOW, self.rect, border_radius=5)
         pygame.draw.circle(screen, WHITE, self.rect.midright, 4)
 
@@ -47,12 +69,16 @@ class Enemy:
     rect: pygame.Rect
     phase: float
     kind: str = "drone"
+    image: pygame.Surface | None = None
 
     def update(self, speed: float) -> None:
         self.rect.x -= int(speed)
         self.rect.y += int(math.sin(pygame.time.get_ticks() * 0.006 + self.phase) * 2)
 
     def draw(self, screen: pygame.Surface) -> None:
+        if self.image:
+            screen.blit(self.image, self.rect)
+            return
         if self.kind == "drone":
             pygame.draw.ellipse(screen, RED, self.rect)
             pygame.draw.ellipse(screen, (80, 14, 35), self.rect, 3)
@@ -70,17 +96,24 @@ class Enemy:
 @dataclass
 class Spike:
     rect: pygame.Rect
+    image: pygame.Surface | None = None
 
     def update(self, speed: float) -> None:
         self.rect.x -= int(speed)
 
     def draw(self, screen: pygame.Surface) -> None:
+        if self.image:
+            screen.blit(self.image, self.rect)
+            return
         points = [(self.rect.left, self.rect.bottom), (self.rect.centerx, self.rect.top), (self.rect.right, self.rect.bottom)]
         pygame.draw.polygon(screen, ORANGE, points)
         pygame.draw.polygon(screen, WHITE, points, 3)
 
 
 class Player:
+    def __init__(self, image: pygame.Surface | None = None) -> None:
+        self.rect = pygame.Rect(PLAYER_X, GROUND_Y - 68, 88, 54)
+        self.image = image
     def __init__(self) -> None:
         self.rect = pygame.Rect(PLAYER_X, GROUND_Y - 68, 88, 54)
         self.velocity_y = 0.0
@@ -140,6 +173,10 @@ class Game:
     def spawn_obstacle(self) -> None:
         if random.random() < 0.64:
             y = random.randint(175, GROUND_Y - 82)
+            kind = random.choice(["drone", "ship"])
+            self.enemies.append(Enemy(pygame.Rect(WIDTH + 30, y, 70, 42), random.random() * 6.28, kind, self.images[f"enemy_{kind}"]))
+        else:
+            self.spikes.append(Spike(pygame.Rect(WIDTH + 30, GROUND_Y - 62, 54, 62), self.images["spike"]))
             self.enemies.append(Enemy(pygame.Rect(WIDTH + 30, y, 70, 42), random.random() * 6.28, random.choice(["drone", "ship"])))
         else:
             self.spikes.append(Spike(pygame.Rect(WIDTH + 30, GROUND_Y - 62, 54, 62)))
@@ -163,7 +200,7 @@ class Game:
     def shoot(self) -> None:
         if not self.game_over:
             x, y = self.player.muzzle()
-            self.bullets.append(Bullet(pygame.Rect(x, y, 24, 8)))
+            self.bullets.append(Bullet(pygame.Rect(x, y, 24, 8), self.images["bullet"]))
 
     def update(self) -> None:
         if self.game_over:
