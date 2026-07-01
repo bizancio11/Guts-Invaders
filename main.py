@@ -114,6 +114,8 @@ class Player:
     def __init__(self, image: pygame.Surface | None = None) -> None:
         self.rect = pygame.Rect(PLAYER_X, GROUND_Y - 68, 88, 54)
         self.image = image
+    def __init__(self) -> None:
+        self.rect = pygame.Rect(PLAYER_X, GROUND_Y - 68, 88, 54)
         self.velocity_y = 0.0
         self.on_ground = True
         self.angle = 0.0
@@ -136,10 +138,6 @@ class Player:
         return self.rect.right - 6, self.rect.centery - 3
 
     def draw(self, screen: pygame.Surface) -> None:
-        if self.image:
-            rotated_image = pygame.transform.rotate(self.image, self.angle)
-            screen.blit(rotated_image, rotated_image.get_rect(center=self.rect.center))
-            return
         plane = pygame.Surface((100, 70), pygame.SRCALPHA)
         pygame.draw.polygon(plane, CYAN, [(8, 36), (60, 14), (94, 34), (58, 55)])
         pygame.draw.polygon(plane, (30, 95, 145), [(25, 36), (52, 0), (66, 31)])
@@ -159,17 +157,10 @@ class Game:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 42)
         self.small_font = pygame.font.Font(None, 28)
-        self.images = {
-            "player": load_image("player.png", (100, 70)),
-            "enemy_drone": load_image("enemy_drone.png", (70, 42)),
-            "enemy_ship": load_image("enemy_ship.png", (70, 42)),
-            "spike": load_image("spike.png", (54, 62)),
-            "bullet": load_image("bullet.png", (24, 8)),
-        }
         self.reset()
 
     def reset(self) -> None:
-        self.player = Player(self.images["player"])
+        self.player = Player()
         self.bullets: list[Bullet] = []
         self.enemies: list[Enemy] = []
         self.spikes: list[Spike] = []
@@ -186,6 +177,9 @@ class Game:
             self.enemies.append(Enemy(pygame.Rect(WIDTH + 30, y, 70, 42), random.random() * 6.28, kind, self.images[f"enemy_{kind}"]))
         else:
             self.spikes.append(Spike(pygame.Rect(WIDTH + 30, GROUND_Y - 62, 54, 62), self.images["spike"]))
+            self.enemies.append(Enemy(pygame.Rect(WIDTH + 30, y, 70, 42), random.random() * 6.28, random.choice(["drone", "ship"])))
+        else:
+            self.spikes.append(Spike(pygame.Rect(WIDTH + 30, GROUND_Y - 62, 54, 62)))
         self.spawn_timer = random.randint(42, 82)
 
     def handle_events(self) -> bool:
